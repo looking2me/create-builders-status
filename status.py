@@ -80,7 +80,26 @@ def main():
             print("Rate limited by Discord, will retry next run.")
             return 0
         print(f"Discord API error {error.code}: {error.read()[:300]!r}")
+        explain_access_problem()
         return 1
+    return 0
+
+
+def explain_access_problem():
+    """Print which bot the token belongs to and whether it is in the server (never the token)."""
+    try:
+        me = discord("GET", "/users/@me")
+        print(f"Token belongs to bot: {me.get('username')} (id {me.get('id')})")
+        guilds = discord("GET", "/users/@me/guilds")
+        names = [f"{g.get('name')} ({g.get('id')})" for g in guilds]
+        print(f"That bot is in {len(guilds)} server(s): {names}")
+        channel_guild = os.environ.get("GUILD_ID") or "1573992770203422741"
+        if not any(g.get("id") == channel_guild for g in guilds):
+            print("-> This bot is NOT in Create Builders: the token is for a different bot.")
+        else:
+            print("-> Bot is in Create Builders: check its permissions on the status channel.")
+    except Exception as error:
+        print(f"Could not identify the bot: {error!r}")
     return 0
 
 
