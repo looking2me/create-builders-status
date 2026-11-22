@@ -1,0 +1,41 @@
+name: Server status
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes (GitHub may delay runs a few minutes)
+  workflow_dispatch:          # "Run workflow" button for a manual check
+
+permissions:
+  contents: read
+  actions: write              # lets the keep-alive step re-enable this schedule
+
+concurrency:
+  group: server-status
+  cancel-in-progress: false
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install --quiet mcstatus==15.0.0
+
+      - name: Check server and update Discord channel
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          CHANNEL_ID: "1574026191537709128"      # 📊 SERVER STATUS voice channel
+          MC_ADDRESS: molecule-hall.tun.ply.gg
+        run: python status.py
+
+      # GitHub pauses scheduled workflows in public repos after 60 days without
+      # commits. Re-enabling it on every run keeps the status channel alive forever.
+      - name: Keep schedule enabled
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/status.yml/enable"
